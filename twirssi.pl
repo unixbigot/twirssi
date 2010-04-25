@@ -112,6 +112,73 @@ sub cmd_direct_as {
     }
 }
 
+sub cmd_favor {
+    my ( $id, $server, $win ) = @_;
+
+    return unless &logged_in($twit);
+
+    $id =~ s/^\s+|\s+$//;
+    unless ($id) {
+        &notice("Usage: /favor <nick[:num]>");
+        return;
+    }
+
+    &cmd_favor_as( "$user $id", $server, $win );
+}
+
+sub cmd_favor_as {
+    my ( $data, $server, $win ) = @_;
+
+    return unless &logged_in($twit);
+
+    $data =~ s/^\s+|\s+$//;
+    my ( $username, $id ) = split ' ', $data, 2;
+
+    unless ($username) {
+        &notice("Usage: /favor_as <username> <nick[:num]>");
+        return;
+    }
+
+    return unless $username = &valid_username($username);
+
+    my $nick;
+    $id =~ s/[^\w\d\-:]+//g;
+    ( $nick, $id ) = split /:/, $id;
+    unless ( exists $id_map{ lc $nick } ) {
+        &notice("Can't find a tweet from $nick to favor!");
+        return;
+    }
+
+    $id = $id_map{__indexes}{$nick} unless $id;
+    unless ( $id_map{ lc $nick }[$id] ) {
+        &notice("Can't find a tweet numbered $id from $nick to favor!");
+        return;
+    }
+
+    my $success = 1;
+    eval {
+	$success = $twits{$username}->create_favorite(
+	        {
+                    id => $id_map{ lc $nick }[$id]
+                }
+            );
+        &notice("Favorite failed") unless $success;
+    };
+    return unless $success;
+
+    if ($@) {
+        &notice("Favorite caused an error: $@.  Aborted");
+        return;
+    }
+
+    foreach ( $data =~ /@([-\w]+)/ ) {
+        $nicks{$1} = time;
+    }
+
+    &notice("Favorite created");
+}
+
+
 sub cmd_retweet {
     my ( $data, $server, $win ) = @_;
 
@@ -1910,6 +1977,8 @@ if ($window) {
     Irssi::command_bind( "tweet_as",                   "cmd_tweet_as" );
     Irssi::command_bind( "retweet",                    "cmd_retweet" );
     Irssi::command_bind( "retweet_as",                 "cmd_retweet_as" );
+    Irssi::command_bind( "favor",                      "cmd_favor" );
+    Irssi::command_bind( "favor_as",                   "cmd_favor_as" );
     Irssi::command_bind( "twitter_reply",              "cmd_reply" );
     Irssi::command_bind( "twitter_reply_as",           "cmd_reply_as" );
     Irssi::command_bind( "twitter_login",              "cmd_login" );
